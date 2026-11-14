@@ -9,9 +9,9 @@ const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require
 const http = require('http');
 const https = require('https');
 
-// ตั้งค่า Token และ Client ID ของบอทมึงตรงนี้
+// ดึง Token และ Client ID จาก Environment Variables ของ Railway
 const TOKEN = process.env.TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;)*
+const CLIENT_ID = process.env.CLIENT_ID;
 
 const client = new Client({
     intents: [
