@@ -10,8 +10,8 @@ const http = require('http');
 const https = require('https');
 
 // ตั้งค่า Token และ Client ID ของบอทมึงตรงนี้
-const TOKEN = 'ใส่_DISCORD_BOT_TOKEN_ของมึงตรงนี้';
-const CLIENT_ID = 'ใส่_CLIENT_ID_ของบอทตรงนี้';
+const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;)*
 
 const client = new Client({
     intents: [
