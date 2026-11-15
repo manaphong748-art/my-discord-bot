@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * JEFF FUJI - ULTIMATE HACKING & EXPLOIT DISCORD BOT v5 (API/IDOR ENGINE)
+ * JEFF FUJI - ULTIMATE AUTO-HACKER DISCORD BOT v6 (FULLY AUTOMATED ENGINE)
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
@@ -51,33 +51,11 @@ client.once('ready', async () => {
                     .setDescription('ระยะเวลาเป็นวินาที (สูงสุด 300)')
                     .setRequired(true)),
         new SlashCommandBuilder()
-            .setName('scan')
-            .setDescription('สแกนหาไฟล์ลับและช่องโหว่เบื้องต้นของเว็บไซต์ (Recon)')
+            .setName('auto-hack')
+            .setDescription('สแกนและเจาะระบบเป้าหมายแบบอัตโนมัติเต็มรูปแบบด้วย URL เดียว')
             .addStringOption(option => 
                 option.setName('url')
                     .setDescription('URL เป้าหมาย (เช่น https://example.com)')
-                    .setRequired(true)),
-        new SlashCommandBuilder()
-            .setName('api-scan')
-            .setDescription('สแกนหาไฟล์ API หรือ Endpoint ที่อาจรั่วไหล (เช่น .json, /api/)')
-            .addStringOption(option => 
-                option.setName('url')
-                    .setDescription('URL เป้าหมาย')
-                    .setRequired(true)),
-        new SlashCommandBuilder()
-            .setName('idor-check')
-            .setDescription('ทดสอบสุ่ม ID ออเดอร์หรือโปรไฟล์เพื่อเช็คช่องโหว่ IDOR')
-            .addStringOption(option => 
-                option.setName('url')
-                    .setDescription('URL ที่มีพารามิเตอร์ไอดี (เช่น https://site.com/user?id=100)')
-                    .setRequired(true))
-            .addIntegerOption(option => 
-                option.setName('start_id')
-                    .setDescription('เลขไอดีเริ่มต้น')
-                    .setRequired(true))
-            .addIntegerOption(option => 
-                option.setName('count')
-                    .setDescription('จำนวนรอบที่จะสุ่ม (สูงสุด 10 รอบ)')
                     .setRequired(true)),
         new SlashCommandBuilder()
             .setName('stop')
@@ -188,144 +166,56 @@ client.on('interactionCreate', async interaction => {
 
         attackTimers.push(timer);
 
-    } else if (commandName === 'scan') {
+    } else if (commandName === 'auto-hack') {
         const targetUrl = interaction.options.getString('url');
-        await interaction.reply(`🔍 กำลังทำ Recon สแกนหาไฟล์ลับและช่องโหว่ของ **${targetUrl}** รอแป๊บไอ้สัส...`);
-
-        const paths = ['/admin', '/login.php', '/config.env', '/backup.sql', '/phpmyadmin', '/robots.txt', '/wp-login.php', '/server-status'];
-        let foundResults = [];
+        await interaction.reply(`🤖 **[AUTO-HACK ENGINE ACTIVATED]** เริ่มสแกนเป้าหมาย **${targetUrl}** แบบอัตโนมัติเต็มรูปแบบ รอรับผลลัพธ์แป๊บไอ้สัส...`);
 
         try {
             const parsedBase = new URL(targetUrl);
-            let checkedCount = 0;
+            
+            // รายการเป้าหมายที่จะสแกนอัตโนมัติ (ไฟล์ลับ + API)
+            const scanTargets = [
+                '/admin', '/login.php', '/config.env', '/backup.sql', '/robots.txt',
+                '/api/v1/users', '/api/products', '/products.json', '/api/auth/session'
+            ];
 
-            paths.forEach((p) => {
+            let results = [];
+            let completedChecks = 0;
+
+            scanTargets.forEach((p) => {
                 const testUrl = `${parsedBase.protocol}//${parsedBase.host}${p}`;
                 const reqLib = parsedBase.protocol === 'https:' ? https : http;
 
-                const req = reqLib.get(testUrl, (res) => {
-                    checkedCount++;
+                const req = reqLib.get(testUrl, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AutoHacker/1.0' }
+                }, (res) => {
+                    completedChecks++;
                     if (res.statusCode === 200 || res.statusCode === 403) {
-                        foundResults.push(`✅ พบจุดน่าสนใจ: \`${testUrl}\` (Status: ${res.statusCode})`);
+                        results.push(`🎯 **[Found]** \`${testUrl}\` (Status: ${res.statusCode})`);
                     }
-                    if (checkedCount === paths.length) {
-                        sendScanResults();
+                    if (completedChecks === scanTargets.length) {
+                        sendAutoReport();
                     }
                 });
 
                 req.on('error', () => {
-                    checkedCount++;
-                    if (checkedCount === paths.length) {
-                        sendScanResults();
+                    completedChecks++;
+                    if (completedChecks === scanTargets.length) {
+                        sendAutoReport();
                     }
                 });
                 req.end();
             });
 
-            async function sendScanResults() {
+            async function sendAutoReport() {
                 const embed = new EmbedBuilder()
-                    .setTitle('🛡️ Recon & Vulnerability Report')
-                    .setColor(foundResults.length > 0 ? 0x22c55e : 0xef4444)
-                    .setDescription(foundResults.length > 0 ? foundResults.join('\n') : '❌ ไม่พบไฟล์ลับหรือจุดอ่อนในรายการทดสอบพื้นฐาน')
-                    .setTimestamp();
-
-                await interaction.followUp({ embeds: [embed] });
-            }
-
-        } catch (err) {
-            await interaction.followUp(`❌ URL ไม่ถูกต้อง: ${err.message}`);
-        }
-
-    } else if (commandName === 'api-scan') {
-        const targetUrl = interaction.options.getString('url');
-        await interaction.reply(`📡 กำลังสแกนหา API Endpoints ที่อาจรั่วไหลของ **${targetUrl}**...`);
-
-        const apiPaths = ['/api/v1/users', '/api/products', '/products.json', '/api/auth/session', '/wp-json/wp/v2/users', '/api/v1/admin'];
-        let foundApi = [];
-
-        try {
-            const parsedBase = new URL(targetUrl);
-            let count = 0;
-
-            apiPaths.forEach((p) => {
-                const testUrl = `${parsedBase.protocol}//${parsedBase.host}${p}`;
-                const reqLib = parsedBase.protocol === 'https:' ? https : http;
-
-                const req = reqLib.get(testUrl, (res) => {
-                    count++;
-                    if (res.statusCode === 200) {
-                        foundApi.push(`🎯 **API Leak Found:** \`${testUrl}\` (Status: 200 OK)`);
-                    }
-                    if (count === apiPaths.length) {
-                        sendApiResults();
-                    }
-                });
-
-                req.on('error', () => {
-                    count++;
-                    if (count === apiPaths.length) {
-                        sendApiResults();
-                    }
-                });
-                req.end();
-            });
-
-            async function sendApiResults() {
-                const embed = new EmbedBuilder()
-                    .setTitle('⚡ API & Data Leak Scan Report')
-                    .setColor(foundApi.length > 0 ? 0x22c55e : 0xef4444)
-                    .setDescription(foundApi.length > 0 ? foundApi.join('\n') : '❌ ไม่พบ API ที่เปิดสาธารณะในรายการทดสอบ')
-                    .setTimestamp();
-
-                await interaction.followUp({ embeds: [embed] });
-            }
-
-        } catch (err) {
-            await interaction.followUp(`❌ URL ไม่ถูกต้อง: ${err.message}`);
-        }
-
-    } else if (commandName === 'idor-check') {
-        const targetUrl = interaction.options.getString('url');
-        const startId = interaction.options.getInteger('start_id');
-        const count = Math.min(interaction.options.getInteger('count'), 10); // จำกัดไม่เกิน 10 รอบเพื่อความปลอดภัย
-
-        await interaction.reply(`🔍 กำลังทดสอบ IDOR สุ่มตรวจสอบไอดีตั้งแต่ **${startId}** ถึง **${startId + count - 1}**...`);
-
-        let idorResults = [];
-        try {
-            const parsedUrl = new URL(targetUrl);
-            let checked = 0;
-
-            for (let i = 0; i < count; i++) {
-                const currentId = startId + i;
-                // แทนที่ค่าไอดีใน URL (สมมติว่ามี id=...)
-                const testUrl = targetUrl.replace(/id=\d+/, `id=${currentId}`);
-                const reqLib = parsedUrl.protocol === 'https:' ? https : http;
-
-                const req = reqLib.get(testUrl, (res) => {
-                    checked++;
-                    if (res.statusCode === 200) {
-                        idorResults.push(`⚠️ **IDOR Potential:** \`${testUrl}\` responded with 200 OK`);
-                    }
-                    if (checked === count) {
-                        sendIdorResults();
-                    }
-                });
-
-                req.on('error', () => {
-                    checked++;
-                    if (checked === count) {
-                        sendIdorResults();
-                    }
-                });
-                req.end();
-            }
-
-            async function sendIdorResults() {
-                const embed = new EmbedBuilder()
-                    .setTitle('🔓 IDOR Vulnerability Test Report')
-                    .setColor(idorResults.length > 0 ? 0xf59e0b : 0x22c55e)
-                    .setDescription(idorResults.length > 0 ? idorResults.join('\n') : '✅ ไม่มีพารามิเตอร์ไอดีที่ตอบสนองผิดปกติในช่วงที่สุ่ม')
+                    .setTitle('💀 Auto-Hacker Recon & Exploit Report')
+                    .setColor(results.length > 0 ? 0x22c55e : 0xef4444)
+                    .setDescription(results.length > 0 ? results.join('\n') : '❌ ไม่พบไฟล์ลับหรือ API ที่เปิดเผยในจุดที่สแกนอัตโนมัติ')
+                    .addFields(
+                        { name: 'Target Analyzed', value: targetUrl },
+                        { name: 'Engine Status', value: '🟢 Scan Completed Successfully' }
+                    )
                     .setTimestamp();
 
                 await interaction.followUp({ embeds: [embed] });
