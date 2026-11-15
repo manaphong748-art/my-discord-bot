@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * JEFF FUJI - ULTIMATE AUTO-HACKER DISCORD BOT v6 (FULLY AUTOMATED ENGINE)
+ * JEFF FUJI - AUTONOMOUS VULN & CREDENTIAL RECON ENGINE v7
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
@@ -51,8 +51,8 @@ client.once('ready', async () => {
                     .setDescription('ระยะเวลาเป็นวินาที (สูงสุด 300)')
                     .setRequired(true)),
         new SlashCommandBuilder()
-            .setName('auto-hack')
-            .setDescription('สแกนและเจาะระบบเป้าหมายแบบอัตโนมัติเต็มรูปแบบด้วย URL เดียว')
+            .setName('deep-recon')
+            .setDescription('สแกนหาช่องโหว่ ไฟล์ลับ และจุดรั่วไหลของรหัสผ่านแบบอัตโนมัติเชิงลึก')
             .addStringOption(option => 
                 option.setName('url')
                     .setDescription('URL เป้าหมาย (เช่น https://example.com)')
@@ -166,55 +166,60 @@ client.on('interactionCreate', async interaction => {
 
         attackTimers.push(timer);
 
-    } else if (commandName === 'auto-hack') {
+    } else if (commandName === 'deep-recon') {
         const targetUrl = interaction.options.getString('url');
-        await interaction.reply(`🤖 **[AUTO-HACK ENGINE ACTIVATED]** เริ่มสแกนเป้าหมาย **${targetUrl}** แบบอัตโนมัติเต็มรูปแบบ รอรับผลลัพธ์แป๊บไอ้สัส...`);
+        await interaction.reply(`🔍 **[DEEP RECON ENGINE]** กำลังสแกนหาไฟล์ลับ จุดรั่วไหลของรหัส และช่องโหว่เชิงลึกของ **${targetUrl}** รอแป๊บไอ้สัส...`);
+
+        // คลังคำศัพท์เป้าหมายเจาะลึก (Wordlist สำหรับสแกนอัตโนมัติ)
+        const deepWordlist = [
+            '/admin', '/admin/login', '/administrator', '/login.php', '/wp-login.php',
+            '/config.env', '/backup.sql', '/database.sql', '/db.bak', '/wp-config.php.bak',
+            '/robots.txt', '/sitemap.xml', '/api/v1/users', '/api/v1/admin', '/products.json',
+            '/.git/HEAD', '/composer.json', '/package.json', '/server-status', '/phpmyadmin'
+        ];
+
+        let findings = [];
+        let checkedCount = 0;
 
         try {
             const parsedBase = new URL(targetUrl);
-            
-            // รายการเป้าหมายที่จะสแกนอัตโนมัติ (ไฟล์ลับ + API)
-            const scanTargets = [
-                '/admin', '/login.php', '/config.env', '/backup.sql', '/robots.txt',
-                '/api/v1/users', '/api/products', '/products.json', '/api/auth/session'
-            ];
 
-            let results = [];
-            let completedChecks = 0;
-
-            scanTargets.forEach((p) => {
-                const testUrl = `${parsedBase.protocol}//${parsedBase.host}${p}`;
+            deepWordlist.forEach((path) => {
+                const testUrl = `${parsedBase.protocol}//${parsedBase.host}${path}`;
                 const reqLib = parsedBase.protocol === 'https:' ? https : http;
 
                 const req = reqLib.get(testUrl, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AutoHacker/1.0' }
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) DeepRecon/2.0' }
                 }, (res) => {
-                    completedChecks++;
+                    checkedCount++;
+                    // บันทึกเฉพาะจุดที่เข้าถึงได้ (200) หรือมีระบบป้องกันแต่เจอตัวตน (403)
                     if (res.statusCode === 200 || res.statusCode === 403) {
-                        results.push(`🎯 **[Found]** \`${testUrl}\` (Status: ${res.statusCode})`);
+                        let tag = res.statusCode === 200 ? '🟢 [OPEN 200]' : '🟡 [LOCKED 403]';
+                        findings.push(`${tag} \`${testUrl}\``);
                     }
-                    if (completedChecks === scanTargets.length) {
-                        sendAutoReport();
+                    if (checkedCount === deepWordlist.length) {
+                        sendDeepReport();
                     }
                 });
 
                 req.on('error', () => {
-                    completedChecks++;
-                    if (completedChecks === scanTargets.length) {
-                        sendAutoReport();
+                    checkedCount++;
+                    if (checkedCount === deepWordlist.length) {
+                        sendDeepReport();
                     }
                 });
                 req.end();
             });
 
-            async function sendAutoReport() {
+            async function sendDeepReport() {
                 const embed = new EmbedBuilder()
-                    .setTitle('💀 Auto-Hacker Recon & Exploit Report')
-                    .setColor(results.length > 0 ? 0x22c55e : 0xef4444)
-                    .setDescription(results.length > 0 ? results.join('\n') : '❌ ไม่พบไฟล์ลับหรือ API ที่เปิดเผยในจุดที่สแกนอัตโนมัติ')
+                    .setTitle('💀 Deep Vulnerability & Credential Recon Report')
+                    .setColor(findings.length > 0 ? 0x22c55e : 0xef4444)
+                    .setDescription(findings.length > 0 ? findings.join('\n') : '❌ ไม่พบไฟล์ลับหรือจุดอ่อนสำคัญในรายการสแกนเชิงลึก')
                     .addFields(
                         { name: 'Target Analyzed', value: targetUrl },
-                        { name: 'Engine Status', value: '🟢 Scan Completed Successfully' }
+                        { name: 'Total Paths Checked', value: `${deepWordlist.length} Endpoints` },
+                        { name: 'Engine Status', value: '🟢 Deep Scan Completed' }
                     )
                     .setTimestamp();
 
