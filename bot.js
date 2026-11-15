@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * JEFF FUJI - FULL-STACK AUTONOMOUS EXPLOIT ENGINE v9
+ * JEFF FUJI - FULL-STACK AUTONOMOUS EXPLOIT ENGINE v10 (SUBDOMAIN RECON)
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
@@ -56,6 +56,13 @@ client.once('ready', async () => {
             .addStringOption(option => 
                 option.setName('url')
                     .setDescription('URL เป้าหมาย (เช่น https://example.com)')
+                    .setRequired(true)),
+        new SlashCommandBuilder()
+            .setName('subdomain-scan')
+            .setDescription('สแกนหาโดเมนย่อย (Subdomains) เพื่อหาประตูหลังของเป้าหมาย')
+            .addStringOption(option => 
+                option.setName('domain')
+                    .setDescription('โดเมนหลัก (เช่น bewergame.com)')
                     .setRequired(true)),
         new SlashCommandBuilder()
             .setName('stop')
@@ -228,6 +235,50 @@ client.on('interactionCreate', async interaction => {
 
         } catch (err) {
             await interaction.followUp(`❌ URL ไม่ถูกต้อง: ${err.message}`);
+        }
+
+    } else if (commandName === 'subdomain-scan') {
+        let domain = interaction.options.getString('domain').replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/$/, '');
+        await interaction.reply(`🔍 **[SUBDOMAIN RECON]** กำลังสแกนหาโดเมนย่อยของ **${domain}** หาประตูหลัง... รอแป๊บไอ้สัส!`);
+
+        const subdomains = ['admin', 'test', 'dev', 'api', 'shop', 'staging', 'portal', 'secure', 'vpn', 'dashboard', 'backup'];
+        let foundSubs = [];
+        let checkedSubs = 0;
+
+        subdomains.forEach((sub) => {
+            const testUrl = `https://${sub}.${domain}`;
+            const req = https.get(testUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0 SubdomainScanner/1.0' },
+                timeout: 5000
+            }, (res) => {
+                checkedSubs++;
+                foundSubs.push(`🟢 **[FOUND]** \`${testUrl}\` (Status: ${res.statusCode})`);
+                if (checkedSubs === subdomains.length) {
+                    sendSubReport();
+                }
+            });
+
+            req.on('error', () => {
+                checkedSubs++;
+                if (checkedSubs === subdomains.length) {
+                    sendSubReport();
+                }
+            });
+            req.end();
+        });
+
+        async function sendSubReport() {
+            const embed = new EmbedBuilder()
+                .setTitle('🌐 Subdomain Recon Report')
+                .setColor(foundSubs.length > 0 ? 0x22c55e : 0xef4444)
+                .setDescription(foundSubs.length > 0 ? foundSubs.join('\n') : '❌ ไม่พบ Subdomain ที่เปิดใช้งานในรายการทดสอบ')
+                .addFields(
+                    { name: 'Target Domain', value: domain },
+                    { name: 'Engine Status', value: '🟢 Subdomain Scan Completed' }
+                )
+                .setTimestamp();
+
+            await interaction.followUp({ embeds: [embed] });
         }
 
     } else if (commandName === 'stop') {
